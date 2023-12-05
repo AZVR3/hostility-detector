@@ -1,35 +1,62 @@
+import sys
 import cv2
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel
+from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import QTimer
 from ultralytics import YOLO
 
 # Load the YOLOv8 model
 model = YOLO('yolov8n.pt')
 
-# Open the video file
-video_path = "path/to/video.mp4"
-cap = cv2.VideoCapture(video_path)
+# Subclass QMainWindow to customize your application's main window
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
 
-# Loop through the video frames
-while cap.isOpened():
-    # Read a frame from the video
-    success, frame = cap.read()
+        # Set the window title
+        self.setWindowTitle("YOLOv8 Tracking")
 
-    if success:
-        # Run YOLOv8 tracking on the frame, persisting tracks between frames
-        results = model.track(frame, persist=True)
+        # Create a QLabel widget to display the annotated frame
+        self.label = QLabel()
+        self.setCentralWidget(self.label)
 
-        # Visualize the results on the frame
-        annotated_frame = results[0].plot()
+        # Open the webcam
+        self.cap = cv2.VideoCapture(0) # Use 0 for the default webcam, or 1, 2, etc. for other webcams
 
-        # Display the annotated frame
-        cv2.imshow("YOLOv8 Tracking", annotated_frame)
+        # Create a QTimer to update the QLabel with the webcam frames
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_frame)
+        self.timer.start(20) # Update every 20 ms
 
-        # Break the loop if 'q' is pressed
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
-    else:
-        # Break the loop if the end of the video is reached
-        break
+    def update_frame(self):
+        # Read a frame from the webcam
+        success, frame = self.cap.read()
 
-# Release the video capture object and close the display window
-cap.release()
-cv2.destroyAllWindows()
+        if success:
+            # Run YOLOv8 tracking on the frame, persisting tracks between frames
+            results = model.track(frame, persist=True)
+
+            # Visualize the results on the frame
+            annotated_frame = results[0].plot()
+
+            # Convert the frame to QImage format
+            height, width, channel = annotated_frame.shape
+            bytes_per_line = 3 * width
+            qimg = QImage(annotated_frame.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
+
+            # Display the QImage on the QLabel
+            self.label.setPixmap(QPixmap.fromImage(qimg))
+        else:
+            # Break the loop if the webcam is disconnected
+            self.timer.stop()
+            self.cap.release()
+
+# Create an instance of QApplication
+app = QApplication(sys.argv)
+
+# Create an instance of MainWindow
+window = MainWindow()
+window.show()
+
+# Start the event loop
+sys.exit(app.exec_())
