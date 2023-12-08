@@ -26,7 +26,7 @@ class MainWindow(QMainWindow):
         # Create a QTimer to update the QLabel with the webcam frames
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
-        self.timer.start(20) # Update every 20 ms
+        self.timer.start(20)
 
     def update_frame(self):
         # Read a frame from the webcam
